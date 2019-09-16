@@ -13,4 +13,4 @@ server.use(express.static('public'));
 server.use(express.json());
 server.use(`${API_ROOT}/device`, device_auth, device);
 
-server.listen(PORT, () => logger.info(`Server listening on port ${PORT}.`))
+server.listen(PORT, () => logger.info(`Server listening on port ${PORT}.`));

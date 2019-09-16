@@ -4,8 +4,9 @@ import { readFile } from 'fs'
 import Router from 'express-promise-router'
 import logger from '../../misc/logger'
 
-export const router = new Router();
-router.get('/:deviceId', async (req, res) => {
+const router = new Router();
+
+router.use('/:deviceId', async (req, res) => {
   log.info(`Received token verification request`, { sender: req.ip });
   try {
     await verifyTokenHandler(req, res);
@@ -14,6 +15,8 @@ router.get('/:deviceId', async (req, res) => {
     res.status(500).send(`Can't verify token`);
   }
 });
+
+export default router;
 
 async function verifyTokenHandler (req, res) {
   if (!validateHeaders(req.headers)) {
@@ -35,8 +38,8 @@ async function verifyTokenHandler (req, res) {
   }
 
   const deviceId = req.params['deviceId'];
-  const { tokens } = await query(
-    `SELECT * FROM device_access_tokens WHERE device = ${deviceId} AND expiration_time <= current_timestamp();`);
+  const { rows: tokens } = await query(
+    `SELECT * FROM device.access_tokens WHERE device = '${deviceId}' AND token = '${token}' AND expiration_time <= current_timestamp();`);
 
   if (tokens.length == 0) {
     logger.error(`Can't find a valid token in the database for device ${deviceId}`, { sender: req.ip })
