@@ -1,26 +1,26 @@
 import query from '../../db/index'
 import jwt from 'jsonwebtoken'
-import { readFile } from 'fs'
+import fs from 'fs'
 import Router from 'express-promise-router'
 import logger from '../../misc/logger'
 
 const router = new Router();
 
-router.use('/:deviceId', async (req, res) => {
-  log.info(`Received token verification request`, { sender: req.ip });
+router.get('/auth/:deviceId', async (req, res) => {
+  logger.info(`Received device auth request`, { sender: req.ip });
   try {
-    await verifyTokenHandler(req, res);
+    await authHandler(req, res);
   } catch (e) {
-    log.error(`Can't verify token`, { error: e, sender: req.ip });
+    logger.error(`Can't verify token`, { error: e, sender: req.ip });
     res.status(500).send(`Can't verify token`);
   }
 });
 
 export default router;
 
-async function verifyTokenHandler (req, res) {
+async function authHandler (req, res) {
   if (!validateHeaders(req.headers)) {
-    log.error(`Authorization header not provided or invalid`, { sender: req.ip });
+    logger.error(`Authorization header not provided or invalid`, { sender: req.ip });
     res
       .status(401)
       .set('WWW-Authenticate', 'Bearer realm="Send device telemetry"')
@@ -39,7 +39,7 @@ async function verifyTokenHandler (req, res) {
 
   const deviceId = req.params['deviceId'];
   const { rows: tokens } = await query(
-    `SELECT * FROM device.access_tokens WHERE device = '${deviceId}' AND token = '${token}' AND expiration_time <= current_timestamp();`);
+    `SELECT * FROM device.access_tokens WHERE device = '${deviceId}' AND token = '${token}' AND expiration_time <= current_timestamp()`);
 
   if (tokens.length == 0) {
     logger.error(`Can't find a valid token in the database for device ${deviceId}`, { sender: req.ip })
@@ -53,7 +53,7 @@ async function verifyTokenHandler (req, res) {
 
 async function decryptToken (token) {
   return new Promise((res, rej) => {
-    readFile('../sensitive/key.pub', (err, key) => {
+    fs.readFile('sensitive/key.pub', (err, key) => {
       if (err) {
         rej(err);
       }

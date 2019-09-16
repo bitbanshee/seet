@@ -1,12 +1,10 @@
-import Pool from 'pg'
+import pg from 'pg'
 import fs from 'fs'
 import logger from '../misc/logger'
 
 const poolPromise = readDBConf()
-  .then(data => { console.log(data); return data; })
-  .then(data => new Pool(data))
+  .then(data => new pg.Pool(data))
   .catch(error => {
-    console.log(error);
     logger.error(`Can't connect to database`, { error });
     process.exit(1);
   });

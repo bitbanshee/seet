@@ -33,7 +33,8 @@ CREATE TABLE public.access_tokens (
 CREATE TABLE public.users (
   name varchar,
   email varchar,
-  password varchar
+  password varchar,
+  role varchar
 );
 
 CREATE TABLE public.enterprises (
