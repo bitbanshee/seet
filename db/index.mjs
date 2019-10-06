@@ -3,7 +3,7 @@ import fs from 'fs'
 import logger from '../misc/logger'
 
 const poolPromise = readDBConf()
-  .then(data => new pg.Pool(data))
+  .then(data => data ? new pg.Pool(data) : new pg.Pool())
   .catch(error => {
     logger.error(`Can't connect to database`, { error });
     process.exit(1);
@@ -12,7 +12,10 @@ const poolPromise = readDBConf()
 async function readDBConf() {
   return new Promise((res, rej) => {
     fs.readFile('sensitive/dbconf.json', 'utf8', (err, data) => {
-      if (err) rej(err);
+      if (err) {
+        // Consider environment variables set
+        res();        
+      }
       res(data);
     });
   });

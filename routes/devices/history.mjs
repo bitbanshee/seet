@@ -6,6 +6,7 @@ import request from 'request-promise-native'
 const router = new Router();
 
 router.use('/history/:deviceId', async (req, res) => {
+  // TODO: check if this is necessary
   logger.info(`Received device request`, { sender: req.ip });
   const deviceId = req.params['deviceId'];
   if (deviceId === undefined || deviceId == '') {
@@ -13,6 +14,15 @@ router.use('/history/:deviceId', async (req, res) => {
     res.status(400).send(`No device ID provided`);
     return;
   }
+
+  /**
+   * TODO: check alternative
+   * const authRequest = request(`/devices/auth/${deviceId}`);
+   * req.pipe(authRequest);
+   * authRequest
+   *   .then(() => Promise.resolve('next'))
+   *   .catch(reason => reason.response.pipe(res))
+   */
 
   return await request({
     url: `/devices/auth/${deviceId}`,

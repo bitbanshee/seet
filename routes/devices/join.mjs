@@ -10,6 +10,17 @@ const router = new Router();
 
 router.post('/join', async (req, res) => {
   logger.info(`Received device join request`, { sender: req.ip });
+
+  try {
+    const authRequest = request(`/users/auth`);
+    req.pipe(authRequest);
+    await authRequest;
+  } catch (e) {
+    logger.error(`Error authenticating user`, { error: e, sender: req.ip });
+    res.status(403).send(`Invalid user or password or user has no privileges to sign up a device`);
+    return;
+  }
+
   try {
     await joinHandler(req, res);
   } catch (e) {
@@ -21,21 +32,6 @@ router.post('/join', async (req, res) => {
 export default router;
 
 async function joinHandler(req, res) {
-  if (!validateHeaders(req.headers)) {
-    logger.error(`Authorization header not provided or invalid`, { sender: req.ip });
-    res
-      .status(401)
-      .set('WWW-Authenticate', 'Basic realm="Generate access token for device"')
-      .send(`Authorization header not provided or invalid`);
-    return;
-  }
-
-  const [ user, password ] = atob(req.headers['authorization'].substring('Basic '.length)).split(':');
-  if (! await validateUser(user, password)) {
-    res.status(403).send(`Invalid user or password`);
-    return;
-  }
-
   const { name, imei, sim } = req.body;
   const maybeDeviceId = await checkDevice(imei, sim);
   if (maybeDeviceId !== null) {
@@ -66,40 +62,6 @@ async function joinHandler(req, res) {
   res
     .status(201)
     .send({ token, device_id: deviceId });
-}
-
-function validateHeaders (headers) {
-  return headers['authorization'] != ''
-    && headers['authorization'] != undefined
-    && headers['authorization'].startsWith('Basic')
-}
-
-async function validateUser(user, password) {
-  const { rows: validUsers } = await query(
-    `SELECT * FROM public.users WHERE email = '${user}' AND password = '${password}' AND role = 'admin'`);
-
-  if (validUsers.length > 0) {
-    return true;
-  }
-
-  const { rows: users } = await query(
-    `SELECT * FROM public.users WHERE email = '${user}'`);
-
-  if (users.length == 0) {
-    logger.info(`No user ${user}`, { sender: req.ip });
-    return false;
-  }
-
-  const { rows: adminUsers } = await query(
-    `SELECT * FROM public.users WHERE email = '${user}' AND role = 'admin'`);
-
-  if (adminUsers.length == 0) {
-    logger.info(`User ${user} has no right to create devices`, { sender: req.ip });
-    return false;
-  }
-
-  logger.info(`Invalid password for user ${user}`, { sender: req.ip });
-  return false;
 }
 
 async function signToken(deviceId, imei, sim_number) {

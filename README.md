@@ -1,3 +1,6 @@
+[![pipeline status](https://gitlab.com/bitbanshee/seet/badges/master/pipeline.svg)](https://gitlab.com/bitbanshee/seet/commits/master)
+
+
 # Seet
 
 A system designed to help people and companies tracking products and belongings.

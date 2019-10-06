@@ -1,9 +1,10 @@
 import express from 'express'
 import devicesRouter from './routes/devices/index'
-import apiconf from './misc/apiconf'
+import usersRouter from './routes/users/index'
 import logger from './misc/logger'
 
-const API_ROOT = `/api/${apiconf.version}`;
+const API_VERSION = process.env.SEET_API_VERSION | '1.0.0';
+const API_ROOT = `/api/${SEET_API_VERSION}`;
 const PORT = 8000;
 
 const server = express();
@@ -11,5 +12,6 @@ const server = express();
 server.use(express.static('public'));
 server.use(express.json());
 server.use(API_ROOT, devicesRouter);
+server.use(API_ROOT, usersRouter);
 
 server.listen(PORT, () => logger.info(`Server listening on port ${PORT}.`));
