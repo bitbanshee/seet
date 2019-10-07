@@ -15,7 +15,6 @@
     "winston": "^3.2.1"
   },
   "scripts": {
-    "start": "node --experimental-modules server.mjs",
-    "test-spec": "node --experimental-modules ./specs/start.mjs"
+    "start": "node --experimental-modules server.mjs"
   }
 }

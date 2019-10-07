@@ -129,30 +129,36 @@ function extractFilters(query) {
   } = query;
 
   const queryFilterTuples = [
-    [
-      `sent_time`,
-      sentTime,
-      minSentTime,
-      maxSentTime
-    ],
-    [
-      `received_time`,
-      receivedTime,
-      minReceivedTime,
-      maxReceivedTime
-    ],
-    [
-      `precision`,
-      precision,
-      minPrecision,
-      maxPrecision
-    ],
-    [
-      `age`,
-      age,
-      minAge,
-      maxAge
-    ]
+    {
+      identifier: `sent_time`,
+      equal: sentTime,
+      min: minSentTime,
+      max: maxSentTime,
+      validation: timeValidation,
+      transformation: timeTransformation
+    },
+    {
+      identifier: `received_time`,
+      equal: receivedTime,
+      min: minReceivedTime,
+      max: maxReceivedTime,
+      validation: timeValidation,
+      transformation: timeTransformation
+    },
+    {
+      identifier: `precision`,
+      equal: precision,
+      min: minPrecision,
+      max: maxPrecision,
+      validation: isValidNumber
+    },
+    {
+      identifier: `age`,
+      equal: age,
+      min: minAge,
+      max: maxAge,
+      validation: isValidNumber
+    }
   ];
 
   return queryFilterTuples
@@ -160,22 +166,22 @@ function extractFilters(query) {
     .filter(tuple => tuple !== null);
 }
 
-function numericSQLFilterFactory(identifier, equal, min, max) {
-  if (isValidNumber(equal)) {
+function numericSQLFilterFactory(identifier, equal, min, max, validation = () => true, transformation = a => a) {
+  if (validation(equal)) {
     return {
       getFilter() {
-        return `${identifier} = ${equal}`
+        return `${identifier} = ${transformation(equal)}`
       }
     };
   }
 
   const filters = [];
-  if (isValidNumber(min)) {
-    filter.push(`>= ${min}`);
+  if (validation(min)) {
+    filter.push(`>= ${transformation(min)}`);
   }
 
-  if (isValidNumber(max)) {
-    filter.push(`< ${max}`);
+  if (validation(max)) {
+    filter.push(`< ${transformation(max)}`);
   }
 
   if (filter.length == 0) {
@@ -195,4 +201,22 @@ function isValidNumber(num) {
   return num !== null
     && num !== undefined
     && !Number.isNaN(Number.parseFloat(num));
+}
+
+function timeValidation(time) {
+  return time !== null
+    && time !== undefined
+    && time.length == 14
+    && /^\d+$/.test(time);
+}
+
+function timeTransformation(time) {
+  const year   = s.substring(0, 4),
+        month  = s.substring(4, 6),
+        day    = s.substring(6, 8),
+        hour   = s.substring(8, 10),
+        minute = s.substring(10, 12),
+        second = s.substring(12, 14);
+
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }

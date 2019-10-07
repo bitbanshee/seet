@@ -1,6 +1,7 @@
 import query from '../../db/index'
 import jwt from 'jsonwebtoken'
 import fs from 'fs'
+import bcrypt from 'bcrypt'
 import Router from 'express-promise-router'
 import logger from '../../misc/logger'
 
@@ -49,11 +50,12 @@ async function joinHandler(req, res) {
   }
   
   const { expirationTime, token } = await signToken(deviceId, imei, sim);
-  const { tokens } = await query(
+  const hashedToken = await bcrypt.hash(token, 10 + ~~(Math.random() * 8));
+  const { rows: tokenRecords } = await query(
     `INSERT INTO devices.access_tokens (device, token, expiration_time) VALUES ($1, $2, $3)`,
-    [deviceId, token, expirationTime]);
+    [deviceId, hashedToken, expirationTime]);
 
-  if (tokens.length == 0) {
+  if (tokenRecords.length == 0) {
     logger.info(`Can't create token for device ${deviceId}`, { sender: req.ip })
     res.status(500).send(`Can't create token for device`);
     return;

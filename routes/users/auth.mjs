@@ -22,7 +22,7 @@ async function authHandler (req, res) {
     logger.error(`Authorization header not provided or invalid`, { sender: req.ip });
     res
       .status(401)
-      .set('WWW-Authenticate', 'Basic realm="Generate access token for device"')
+      .set('WWW-Authenticate', 'Basic realm="Authentication"')
       .send(`Authorization header not provided or invalid`);
     return;
   }

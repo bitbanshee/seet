@@ -1,0 +1,118 @@
+stages:
+  - prebuild
+  - build
+  - test
+  - deploy
+
+cache:
+  paths:
+    - node_modules/
+
+services:
+    - docker:19.03.0-dind
+  
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_REGISTRY: registry.gitlab.com
+  REGISTRY_PROJECT_PATH: /bitbanshee/seet/docker
+
+version_extractor:
+  stage: prebuild
+  image:
+    name: realguess/jq
+  tags:
+    - shared
+  artifacts:
+    paths:
+      - web-api-version.txt
+    expire_in: 1 week
+  script:
+    - jq -r '.version' package.json > web-api-version.txt
+
+build:docker:
+  stage: build
+  image: docker:git
+  tags:
+    - docker
+  dependencies:
+    - version_extractor
+  script:
+    - mkdir -p sensitive
+    - echo ${PRV_KEY} > sensitive/key
+    - echo ${PUB_KEY} > sensitive/key.pub
+    - echo ${KEY_PASS} > sensitive/pass
+    - SEET_API_VERSION=$(cat web-api-version.txt)
+    - DOCKER_IMAGE_TEST_VERSION_TAG=${DOCKER_REGISTRY}${REGISTRY_PROJECT_PATH}/webapi:${SEET_API_VERSION}-TEST
+    - docker build -t ${DOCKER_IMAGE_TEST_VERSION_TAG} .
+    - docker login ${DOCKER_REGISTRY}
+    - docker push ${DOCKER_IMAGE_TEST_VERSION_TAG}
+
+test:api:
+  stage: test
+  image: docker:git
+  tags:
+    - docker
+  dependencies:
+    - version_extractor
+  artifacts:
+    when: always
+    reports:
+      junit: specs/report.xml
+    expire_in: 30 days
+  services:
+    - postgres:latest
+  variables:
+    POSTGRES_USER: seet_tester
+    POSTGRES_PASSWORD: "POKEMON"
+    POSTGRES_DB: seet
+  script:
+    - SEET_API_VERSION=$(cat web-api-version.txt)
+    - DOCKER_IMAGE_TEST_VERSION_TAG=${DOCKER_REGISTRY}${REGISTRY_PROJECT_PATH}/webapi:${SEET_API_VERSION}-TEST
+    - >
+      docker run \
+        --rm \
+        --add-host postgres:${POSTGRES_PORT_5432_TCP_ADDR} \
+        -e PGHOST="postgres" \
+        -e PGUSER=${POSTGRES_USER} \
+        -e PGPASSWORD=${POSTGRES_PASSWORD} \
+        -e PGDATABASE=${POSTGRES_DB} \
+        -v ${CI_PROJECT_DIR}/ci/initdb.sql:/initdb.sql \
+        postgres \
+        psql -f /initdb.sql
+    # TODO: finish initdb.sql adding data
+    - >
+      docker run \
+        --name seet_web_api \
+        --add-host postgres:${POSTGRES_PORT_5432_TCP_ADDR} \
+        --net host \
+        -p 8000:8000 \
+        -e SEET_API_PORT=8000 \
+        -e SEET_API_VERSION=${SET_API_VERSION} \
+        -e PGHOST="postgres" \
+        -e PGUSER=${POSTGRES_USER} \
+        -e PGPASSWORD=${POSTGRES_PASSWORD} \
+        -e PGDATABASE=${POSTGRES_DB} \
+        -d ${DOCKER_IMAGE_TEST_VERSION_TAG}
+    - >
+      docker run \
+        -v ${CI_PROJECT_DIR}/specs:/specs \
+        --rm \
+        --net host \
+        postman/newman \
+        run /specs/postman_collection.json --reporters cli,junit --reporter-junit-export /specs/report.xml
+
+deploy:docker:
+  stage: deploy
+  image: docker:git
+  tags:
+    - docker
+  dependencies:
+    - version_extractor
+  script:
+    - SEET_API_VERSION=$(cat web-api-version.txt)
+    - DOCKER_IMAGE_VERSION_TAG=${DOCKER_REGISTRY}${REGISTRY_PROJECT_PATH}/webapi:${SEET_API_VERSION}
+    - DOCKER_IMAGE_TEST_VERSION_TAG=${DOCKER_IMAGE_VERSION_TAG}-TEST
+    - docker tag ${DOCKER_IMAGE_TEST_VERSION_TAG} ${DOCKER_IMAGE_VERSION_TAG}
+    - docker login ${DOCKER_REGISTRY}
+    - docker push ${DOCKER_IMAGE_VERSION_TAG}

@@ -3,9 +3,9 @@ import devicesRouter from './routes/devices/index'
 import usersRouter from './routes/users/index'
 import logger from './misc/logger'
 
-const API_VERSION = process.env.SEET_API_VERSION | '1.0.0';
-const API_ROOT = `/api/${SEET_API_VERSION}`;
-const PORT = 8000;
+const API_VERSION = process.env.SEET_API_VERSION || '1.0.0';
+const API_ROOT = `/api/${API_VERSION}`;
+const PORT = process.env.SEET_API_PORT || 80;
 
 const server = express();
 
