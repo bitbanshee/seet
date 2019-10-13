@@ -62,6 +62,7 @@ async function getHandler(req, res) {
 
   const queryText = `
 SELECT
+  device,
   coordinates,
   altitude_cm,
   precision,
@@ -91,14 +92,16 @@ async function postHandler(req, res) {
 
   const deviceInfo = req.body;
   const deviceId = req.params['deviceId'];
-  const { rows } = await query(INSERT_QUERY, [
+  const queryText = `INSERT INTO device.history (device, coordinates, altitude_cm, precision, age, ` +
+    `speed, sent_time, received_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
+  const { rows } = await query(queryText, [
     deviceId,
-    `(${deviceInfo.latitude},${deviceInfo.longitude})`,
-    deviceInfo.altitude,
+    deviceInfo.coordinates,
+    deviceInfo.altitude_cm,
     deviceInfo.precision,
     deviceInfo.age,
     deviceInfo.speed,
-    new Date(deviceInfo.sent),
+    new Date(deviceInfo.sent_time),
     Date.now()
   ]);
 

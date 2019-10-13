@@ -61,7 +61,7 @@ async function fetchUser(user, password, role) {
 
   if (! await bcrypt.compare(password, validUser.password)) {
     logger.info(`Invalid password for user ${user}`, { sender: req.ip });
-    return null;  
+    return null;
   }
 
   // It's dangerous out there
