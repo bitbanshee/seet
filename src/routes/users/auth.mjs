@@ -1,6 +1,6 @@
-import query from '../../db/index'
+import query from '../../db/index.mjs'
 import Router from 'express-promise-router'
-import logger from '../../misc/logger'
+import logger from '../../misc/logger.mjs'
 import bcrypt from 'bcrypt'
 
 const router = new Router();

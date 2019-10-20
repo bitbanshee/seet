@@ -1,9 +1,9 @@
-import query from '../../db/index'
+import query from '../../db/index.mjs'
 import jwt from 'jsonwebtoken'
 import fs from 'fs'
 import bcrypt from 'bcrypt'
 import Router from 'express-promise-router'
-import logger from '../../misc/logger'
+import logger from '../../misc/logger.mjs'
 
 const router = new Router();
 

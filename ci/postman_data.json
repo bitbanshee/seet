@@ -1,5 +1,6 @@
 [
   {
+    "role": "admin",
     "api_user": "invalid",
     "api_user_password": "invalid",
     "user_authentication_status_code": "[401,403,500]",

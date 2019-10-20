@@ -1,7 +1,7 @@
 import express from 'express'
-import devicesRouter from './routes/devices/index'
-import usersRouter from './routes/users/index'
-import logger from './misc/logger'
+import devicesRouter from './src/routes/devices/index.mjs'
+import usersRouter from './src/routes/users/index.mjs'
+import logger from './src/misc/logger.mjs'
 
 const API_VERSION = process.env.SEET_API_VERSION || '1.0.0';
 const API_ROOT = `/api/${API_VERSION}`;

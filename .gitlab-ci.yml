@@ -12,7 +12,6 @@ services:
     - docker:19.03.1-dind
   
 variables:
-  #DOCKER_HOST: tcp://docker:2376
   DOCKER_DRIVER: overlay2
   DOCKER_TLS_CERTDIR: "/certs"
 
@@ -64,6 +63,8 @@ test:api:
     - postgres:latest
     - docker:19.03.1-dind
   variables:
+    SEET_API_PORT: 8000
+    PGPORT: 5432
     POSTGRES_USER: seet_tester
     POSTGRES_PASSWORD: POKEMON
     POSTGRES_DB: seet
@@ -74,21 +75,26 @@ test:api:
   script:
     - SEET_API_VERSION=$(cat web-api-version.txt)
     - DOCKER_IMAGE_TEST_VERSION_TAG=${CI_REGISTRY_IMAGE}/webapi:${SEET_API_VERSION}-TEST
-    - echo ${DOCKER_IMAGE_TEST_VERSION_TAG}
-    # Initiating the database
-    # Generating the user password hash to store using the app image to avoid performing an unecessary 'npm ci'
+    # Setup test data
     - >
       docker run \
         --rm \
+        -e SEET_API_VERSION=${SEET_API_VERSION} \
+        -e SEET_API_PORT=${SEET_API_PORT} \
+        -e API_USER_EMAIL=${API_USER_EMAIL} \
         -e API_USER_PASSWORD=${API_USER_PASSWORD} \
+        -v ${CI_PROJECT_DIR}/ci:/usr/src/app/ci \
+        --entrypoint "/bin/bash" \
         ${DOCKER_IMAGE_TEST_VERSION_TAG} \
-        node --experimental-modules ci/user-passwd-crypt.mjs ${API_USER_PASSWORD} > hashed-password.txt
-    - echo >>ci/initdb.sql 'INSERT INTO public.users VALUES ('"'"${API_USER}"'"', '"'"${API_USER_EMAIL}"'"', '"'"$(cat hashed-password.txt)"'"', '"'"${API_USER_ROLE}"'"');'
+        ./ci/node-dependent-setup.sh
+    # Initiating the database
+    - echo >>ci/initdb.sql 'INSERT INTO public.users VALUES ('"'"${API_USER}"'"', '"'"${API_USER_EMAIL}"'"', '"'"$(cat ci/hashed-password.txt)"'"', '"'"${API_USER_ROLE}"'"');'
     - >
       docker run \
         --rm \
         --add-host postgres:${POSTGRES_PORT_5432_TCP_ADDR} \
         -e PGHOST="postgres" \
+        -e PGPORT=${PGPORT} \
         -e PGUSER=${POSTGRES_USER} \
         -e PGPASSWORD=${POSTGRES_PASSWORD} \
         -e PGDATABASE=${POSTGRES_DB} \
@@ -100,27 +106,32 @@ test:api:
       docker run \
         --name seet_web_api \
         --add-host postgres:${POSTGRES_PORT_5432_TCP_ADDR} \
-        --net host \
-        -p 8000:8000 \
-        -e SEET_API_PORT=8000 \
+        -p ${SEET_API_PORT}:${SEET_API_PORT} \
+        -e SEET_API_PORT=${SEET_API_PORT} \
         -e SEET_API_VERSION=${SET_API_VERSION} \
         -e PGHOST="postgres" \
         -e PGUSER=${POSTGRES_USER} \
         -e PGPASSWORD=${POSTGRES_PASSWORD} \
         -e PGDATABASE=${POSTGRES_DB} \
         -d ${DOCKER_IMAGE_TEST_VERSION_TAG}
-    # Running Postman tests
-    - wget -O ci/postman_collection.json https://www.getpostman.com/collections/96a843d50e3a3623926c
     - >
       docker run \
         -v ${CI_PROJECT_DIR}/ci:/ci \
         --rm \
         --net host \
+        -e POSTMAN_COLLECTION_URL=${POSTMAN_COLLECTION_URL} \
         postman/newman \
-        run /ci/postman_collection.json --reporters cli,junit --reporter-junit-export /ci/report.xml
+        run --iteration-data /ci/postman_data.json \
+          --environment /ci/gitlab_ci_postman_environment.json \
+          --reporters cli,junit \
+          --reporter-junit-export /ci/report.xml \
+          ${POSTMAN_COLLECTION_URL}
 
 deploy:docker:
   stage: deploy
+  only:
+    refs:
+      - master
   image: docker:git
   tags:
     - docker

@@ -1,9 +1,9 @@
-import query from '../../db/index'
+import query from '../../db/index.mjs'
 import jwt from 'jsonwebtoken'
 import fs from 'fs'
 import bcrypt from 'bcrypt'
 import Router from 'express-promise-router'
-import logger from '../../misc/logger'
+import logger from '../../misc/logger.mjs'
 
 // 30 days
 const expirationTime = (Date.now() / 1000) + (30 * 24 * 60 * 60);

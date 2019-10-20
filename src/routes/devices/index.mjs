@@ -1,7 +1,7 @@
 import Router from 'express-promise-router'
-import historyRouter from './history'
-import authRouter from './auth'
-import joinRouter from './join'
+import historyRouter from './history.mjs'
+import authRouter from './auth.mjs'
+import joinRouter from './join.mjs'
 
 const router = new Router();
 router.use(`/devices`, historyRouter);

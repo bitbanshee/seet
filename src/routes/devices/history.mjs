@@ -1,6 +1,6 @@
-import query from '../../db/index'
+import query from '../../db/index.mjs'
 import Router from 'express-promise-router'
-import logger from '../../misc/logger'
+import logger from '../../misc/logger.mjs'
 import request from 'request-promise-native'
 
 const router = new Router();
