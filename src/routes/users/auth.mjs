@@ -1,6 +1,6 @@
-import query from '../../db/index'
+import query from '../../db/index.mjs'
 import Router from 'express-promise-router'
-import logger from '../../misc/logger'
+import logger from '../../misc/logger.mjs'
 import bcrypt from 'bcrypt'
 
 const router = new Router();
@@ -22,14 +22,17 @@ async function authHandler (req, res) {
     logger.error(`Authorization header not provided or invalid`, { sender: req.ip });
     res
       .status(401)
-      .set('WWW-Authenticate', 'Basic realm="Generate access token for device"')
+      .set('WWW-Authenticate', 'Basic realm="Authentication"')
       .send(`Authorization header not provided or invalid`);
     return;
   }
 
-  const [ user, password ] = atob(req.headers['authorization'].substring('Basic '.length)).split(':');
+  const [ user, password ] = Buffer
+    .from(req.headers['authorization'].substring('Basic '.length), 'base64')
+    .toString()
+    .split(':');
   const role = req.query.role || null;
-  const validUser = await fetchUser(user, password, role);
+  const validUser = await fetchUser(user, password, role, req);
   if (validUser === null) {
     res.status(403).send(`Invalid user or password or user has no provided role`);
     return;
@@ -44,7 +47,7 @@ function validateHeaders (headers) {
     && headers['authorization'].startsWith('Basic')
 }
 
-async function fetchUser(user, password, role) {
+async function fetchUser(user, password, role, req) {
   const { rows: validUsers } = await query(
     `SELECT name, email, password, role FROM public.users WHERE email = '${user}'`);
 
@@ -61,7 +64,7 @@ async function fetchUser(user, password, role) {
 
   if (! await bcrypt.compare(password, validUser.password)) {
     logger.info(`Invalid password for user ${user}`, { sender: req.ip });
-    return null;  
+    return null;
   }
 
   // It's dangerous out there

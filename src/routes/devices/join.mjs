@@ -1,20 +1,32 @@
-import query from '../../db/index'
+import query from '../../db/index.mjs'
 import jwt from 'jsonwebtoken'
 import fs from 'fs'
+import bcrypt from 'bcrypt'
 import Router from 'express-promise-router'
-import logger from '../../misc/logger'
+import logger from '../../misc/logger.mjs'
+import request from 'request-promise-native'
+import uuid from 'uuid'
+import { API_ROOT, API_PORT } from '../../../server.mjs'
 
-// 30 days
-const expirationTime = (Date.now() / 1000) + (30 * 24 * 60 * 60);
+const oneMonthInSeconds = 30 * 24 * 60 * 60;
 const router = new Router();
 
 router.post('/join', async (req, res) => {
   logger.info(`Received device join request`, { sender: req.ip });
-
+  
   try {
-    const authRequest = request(`/users/auth`);
-    req.pipe(authRequest);
-    await authRequest;
+    const [ user, password ] = Buffer
+      .from(req.headers['authorization'].substring('Basic '.length), 'base64')
+      .toString()
+      .split(':');    
+    await request({
+      url: `http://localhost:${API_PORT}${API_ROOT}/users/auth`,
+      auth: {
+        user,
+        password,
+        sendImmediately: false
+      }
+    });
   } catch (e) {
     logger.error(`Error authenticating user`, { error: e, sender: req.ip });
     res.status(403).send(`Invalid user or password or user has no privileges to sign up a device`);
@@ -49,11 +61,12 @@ async function joinHandler(req, res) {
   }
   
   const { expirationTime, token } = await signToken(deviceId, imei, sim);
-  const { tokens } = await query(
-    `INSERT INTO devices.access_tokens (device, token, expiration_time) VALUES ($1, $2, $3)`,
-    [deviceId, token, expirationTime]);
+  const hashedToken = await bcrypt.hash(token, 10 + ~~(Math.random() * 8));
+  const { rows: tokenRecords } = await query(
+    `INSERT INTO device.access_tokens (device, token, expiration_time) VALUES ($1, $2, $3) RETURNING *`,
+    [deviceId, hashedToken, new Date(expirationTime)]);
 
-  if (tokens.length == 0) {
+  if (tokenRecords.length == 0) {
     logger.info(`Can't create token for device ${deviceId}`, { sender: req.ip })
     res.status(500).send(`Can't create token for device`);
     return;
@@ -67,26 +80,27 @@ async function joinHandler(req, res) {
 async function signToken(deviceId, imei, sim_number) {
   return await Promise.all([
     new Promise((res, rej) => {
-      fs.readFile('sensitive/key', (err, key) => {
+      fs.readFile('sensitive/key', { encoding: 'utf8' }, (err, key) => {
         if (err) {
           logger.error(`Error reading key: ${err.stack}`);
           rej(err);
         }
-        res(key);
+        res(key.trim());
       })
     }),
     new Promise((res, rej) => {
-      fs.readFile('sensitive/pass', { encoding: 'utf8' }, (err, key) => {
+      fs.readFile('sensitive/pass', { encoding: 'utf8' }, (err, pass) => {
         if (err) {
           logger.error(`Error reading pass: ${err.stack}`);
           rej(err);
         }
-        res(key);
+        res(pass.trim());
       })
     }),
   ])
     .then(([key, passphrase]) => {
       return new Promise((res, rej) => {
+        const expirationTime = Math.floor((Date.now() / 1000)) + oneMonthInSeconds;
         jwt.sign({
           data: {
             deviceId,
@@ -98,8 +112,7 @@ async function signToken(deviceId, imei, sim_number) {
           key,
           passphrase
         }, {
-          algorithm: 'RS256',
-          expiresIn: aMonth
+          algorithm: 'RS256'
         }, function (err, token) {
           if (err) {
             logger.error(`Error signing token: ${err.message}`)
@@ -121,9 +134,10 @@ async function checkDevice(imei, sim) {
 }
 
 async function createDevice(name, imei, sim) {
+  const device_id = uuid(); 
   const { rows } = await query(
-    `INSERT INTO device.devices (name, sim_number, imei, active) VALUES ($1, $2, $3, $4)`,
-    [name, sim, imei, false]);
+    `INSERT INTO device.devices (id, name, sim_number, imei, active) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [device_id, name, sim, imei, false]);
   if (rows.length > 0) {
     return rows[0].id;
   }

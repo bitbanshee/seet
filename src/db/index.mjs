@@ -1,6 +1,6 @@
 import pg from 'pg'
 import fs from 'fs'
-import logger from '../misc/logger'
+import logger from '../misc/logger.mjs'
 
 const poolPromise = readDBConf()
   .then(data => data ? new pg.Pool(data) : new pg.Pool())

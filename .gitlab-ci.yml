@@ -1,0 +1,150 @@
+stages:
+  - prebuild
+  - build
+  - test
+  - deploy
+
+cache:
+  paths:
+    - node_modules/
+
+services:
+    - docker:19.03.1-dind
+  
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
+version_extractor:
+  stage: prebuild
+  image:
+    name: realguess/jq
+  services: []
+  tags:
+    - shared
+  artifacts:
+    paths:
+      - web-api-version.txt
+    expire_in: 1 week
+  script:
+    - jq -r '.version' package.json > web-api-version.txt
+
+build:docker:
+  stage: build
+  image: docker:git
+  tags:
+    - docker
+  dependencies:
+    - version_extractor
+  script:
+    - SEET_API_VERSION=$(cat web-api-version.txt)
+    - DOCKER_IMAGE_TEST_VERSION_TAG=${CI_REGISTRY_IMAGE}/webapi:${SEET_API_VERSION}-TEST
+    - docker build -t ${DOCKER_IMAGE_TEST_VERSION_TAG} .
+    - docker login -u ${CI_REGISTRY_USER} -p ${CI_REGISTRY_PASSWORD} ${CI_REGISTRY}
+    - docker push ${DOCKER_IMAGE_TEST_VERSION_TAG}
+
+test:api:
+  stage: test
+  image: docker:git
+  tags:
+    - docker
+  dependencies:
+    - version_extractor
+  artifacts:
+    paths:
+      - combined.log
+      - error.log
+    when: always
+    reports:
+      junit: ci/report.xml
+    expire_in: 30 days
+  services:
+    - postgres:latest
+    - docker:19.03.1-dind
+  variables:
+    SEET_API_PORT: 8000
+    POSTGRES_USER: seet_tester
+    POSTGRES_PASSWORD: POKEMON
+    POSTGRES_DB: seet
+    API_USER: seet_tester
+    API_USER_EMAIL: seet_tester@seet.com
+    API_USER_ROLE: admin
+    API_USER_PASSWORD: DIGIMON 
+  script:
+    - SEET_API_VERSION=$(cat web-api-version.txt)
+    - DOCKER_IMAGE_TEST_VERSION_TAG=${CI_REGISTRY_IMAGE}/webapi:${SEET_API_VERSION}-TEST
+    # Setup test data
+    - >
+      docker run \
+        --rm \
+        -e SEET_API_VERSION=${SEET_API_VERSION} \
+        -e SEET_API_PORT=${SEET_API_PORT} \
+        -e API_USER_EMAIL=${API_USER_EMAIL} \
+        -e API_USER_PASSWORD=${API_USER_PASSWORD} \
+        -v ${CI_PROJECT_DIR}/ci:/usr/src/app/ci \
+        --entrypoint "/bin/bash" \
+        ${DOCKER_IMAGE_TEST_VERSION_TAG} \
+        ./ci/node-dependent-setup.sh
+    # Initiating the database
+    - echo >>ci/initdb.sql 'INSERT INTO public.users VALUES ('"'"${API_USER}"'"', '"'"${API_USER_EMAIL}"'"', '"'"$(cat ci/hashed-password.txt)"'"', '"'"${API_USER_ROLE}"'"');'
+    - >
+      docker run \
+        --rm \
+        --add-host postgres:${POSTGRES_PORT_5432_TCP_ADDR} \
+        -e PGHOST="postgres" \
+        -e PGUSER=${POSTGRES_USER} \
+        -e PGPASSWORD=${POSTGRES_PASSWORD} \
+        -e PGDATABASE=${POSTGRES_DB} \
+        -v ${CI_PROJECT_DIR}/ci/initdb.sql:/initdb.sql \
+        postgres \
+        psql -f /initdb.sql
+    # Creating log files and sensisitve info
+    - touch combined.log
+    - touch error.log
+    # Running the API test container
+    - >
+      docker run \
+        --name seet_web_api \
+        --add-host postgres:${POSTGRES_PORT_5432_TCP_ADDR} \
+        -v ${CI_PROJECT_DIR}/combined.log:/usr/src/app/combined.log \
+        -v ${CI_PROJECT_DIR}/error.log:/usr/src/app/error.log \
+        -v ${PRV_KEY}:/usr/src/app/sensitive/key \
+        -v ${PUB_KEY}:/usr/src/app/sensitive/key.pub \
+        -v ${KEY_PASS}:/usr/src/app/sensitive/pass \
+        -p ${SEET_API_PORT}:${SEET_API_PORT} \
+        -e SEET_API_PORT=${SEET_API_PORT} \
+        -e SEET_API_VERSION=${SET_API_VERSION} \
+        -e PGHOST="postgres" \
+        -e PGUSER=${POSTGRES_USER} \
+        -e PGPASSWORD=${POSTGRES_PASSWORD} \
+        -e PGDATABASE=${POSTGRES_DB} \
+        -d ${DOCKER_IMAGE_TEST_VERSION_TAG}
+    - >
+      docker run \
+        -v ${CI_PROJECT_DIR}/ci:/ci \
+        --rm \
+        --net host \
+        postman/newman \
+        run --iteration-data /ci/postman_data.json \
+          --environment /ci/gitlab_ci_postman_environment.json \
+          --reporters cli,junit \
+          --reporter-junit-export /ci/report.xml \
+          /ci/postman_collection.json
+
+deploy:docker:
+  stage: deploy
+  only:
+    refs:
+      - master
+  image: docker:git
+  tags:
+    - docker
+  dependencies:
+    - version_extractor
+  script:
+    - SEET_API_VERSION=$(cat web-api-version.txt)
+    - DOCKER_IMAGE_VERSION_TAG=${CI_REGISTRY_IMAGE}/webapi:${SEET_API_VERSION}
+    - DOCKER_IMAGE_TEST_VERSION_TAG=${DOCKER_IMAGE_VERSION_TAG}-TEST
+    - docker tag ${DOCKER_IMAGE_TEST_VERSION_TAG} ${DOCKER_IMAGE_VERSION_TAG}
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push ${DOCKER_IMAGE_VERSION_TAG}

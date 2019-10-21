@@ -1,0 +1,34 @@
+[
+  {
+    "role": "admin",
+    "api_user": "invalid",
+    "api_user_password": "invalid",
+    "user_authentication_status_code": "[401,403,500]",
+    "device_sign_up_status_code": "[401,403,500]"
+  },
+  {
+    "role": "admin",
+    "api_user": "unset",
+    "api_user_password": "unset",
+    "user_authentication_status_code": "[200]",
+    "device_name": "device_test",
+    "device_imei": "000000-00-000000-0",
+    "device_sim": "31987654321",
+    "device_sign_up_status_code": "[201]",
+    "device_token": "invalid",
+    "device_authentication_status_code": "[401,403,500]"
+  },
+  {
+    "role": "admin",
+    "api_user": "unset",
+    "api_user_password": "unset",
+    "user_authentication_status_code": "[200]",
+    "device_name": "device_test",
+    "device_imei": "000000-00-000000-0",
+    "device_sim": "31987654321",
+    "device_sign_up_status_code": "[201]",
+    "device_authentication_status_code": "[200]",
+    "device_history_post_status_code": "[201]",
+    "device_history_get_status_code": "[200]"
+  }
+]

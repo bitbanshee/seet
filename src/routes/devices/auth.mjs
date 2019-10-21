@@ -1,8 +1,9 @@
-import query from '../../db/index'
+import query from '../../db/index.mjs'
 import jwt from 'jsonwebtoken'
 import fs from 'fs'
+import bcrypt from 'bcrypt'
 import Router from 'express-promise-router'
-import logger from '../../misc/logger'
+import logger from '../../misc/logger.mjs'
 
 const router = new Router();
 
@@ -23,7 +24,7 @@ async function authHandler (req, res) {
     logger.error(`Authorization header not provided or invalid`, { sender: req.ip });
     res
       .status(401)
-      .set('WWW-Authenticate', 'Bearer realm="Send device telemetry"')
+      .set('WWW-Authenticate', 'Bearer realm="Send device token"')
       .send(`Authorization header not provided or invalid`);
     return;
   }
@@ -39,7 +40,7 @@ async function authHandler (req, res) {
 
   const deviceId = req.params['deviceId'];
   const { rows: tokens } = await query(
-    `SELECT * FROM device.access_tokens WHERE device = '${deviceId}' AND token = '${token}' AND expiration_time <= current_timestamp()`);
+    `SELECT * FROM device.access_tokens WHERE device = '${deviceId}' AND expiration_time <= current_timestamp`);
 
   if (tokens.length == 0) {
     logger.error(`Can't find a valid token in the database for device ${deviceId}`, { sender: req.ip })
@@ -47,13 +48,20 @@ async function authHandler (req, res) {
     return;
   }
 
+  const validRecord = tokens[0];
+  if (! await bcrypt.compare(token, validRecord.token)) {
+    logger.info(`Invalid token for user ${user}`, { sender: req.ip });
+    res.status(403).send(`Invalid token`);
+    return;  
+  }
+
   logger.info(`Token validated`, { sender: req.ip });
-  return Promise.resolve('next');
+  res.status(200).send();
 };
 
 async function decryptToken (token) {
   return new Promise((res, rej) => {
-    fs.readFile('sensitive/key.pub', (err, key) => {
+    fs.readFile('sensitive/key.pub', { encoding: 'utf8' }, (err, key) => {
       if (err) {
         rej(err);
       }
@@ -68,7 +76,6 @@ async function decryptToken (token) {
           if (err) {
             rej(err);
           }
-          
           res(payload);
         });
       });

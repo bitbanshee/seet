@@ -1,35 +1,25 @@
-import query from '../../db/index'
+import query from '../../db/index.mjs'
 import Router from 'express-promise-router'
-import logger from '../../misc/logger'
+import logger from '../../misc/logger.mjs'
 import request from 'request-promise-native'
+import { API_ROOT, API_PORT } from '../../../server.mjs'
 
 const router = new Router();
 
 router.use('/history/:deviceId', async (req, res) => {
-  // TODO: check if this is necessary
-  logger.info(`Received device request`, { sender: req.ip });
   const deviceId = req.params['deviceId'];
-  if (deviceId === undefined || deviceId == '') {
-    logger.info(`No device ID provided`, { sender: req.ip });
-    res.status(400).send(`No device ID provided`);
-    return;
+  const token = req.headers['authorization'].substring('Bearer '.length);
+  try {
+    await request({
+      url: `http://localhost:${API_PORT}${API_ROOT}/devices/auth/${deviceId}`,
+      auth: {
+        'bearer': token 
+      }
+    });
+    return 'next';
+  } catch (reason) {
+    reason.response.pipe(res);
   }
-
-  /**
-   * TODO: check alternative
-   * const authRequest = request(`/devices/auth/${deviceId}`);
-   * req.pipe(authRequest);
-   * authRequest
-   *   .then(() => Promise.resolve('next'))
-   *   .catch(reason => reason.response.pipe(res))
-   */
-
-  return await request({
-    url: `/devices/auth/${deviceId}`,
-    headers: req.headers
-  })
-    .then(() => Promise.resolve('next'))
-    .catch(reason => reason.response.pipe(res))
 });
 
 router.get('/history/:deviceId', async (req, res) => {
@@ -57,11 +47,12 @@ export default router;
 async function getHandler(req, res) {
   const deviceId = req.params['deviceId'];
   const filterClauses = extractFilters(req.query)
-    .map(filter => filter.makeFilter())
+    .map(filter => filter.getFilter())
     .join(` AND `);
 
   const queryText = `
 SELECT
+  device,
   coordinates,
   altitude_cm,
   precision,
@@ -91,15 +82,17 @@ async function postHandler(req, res) {
 
   const deviceInfo = req.body;
   const deviceId = req.params['deviceId'];
-  const { rows } = await query(INSERT_QUERY, [
+  const queryText = `INSERT INTO device.history (device, coordinates, altitude_cm, precision, age, ` +
+    `speed, sent_time, received_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
+  const { rows } = await query(queryText, [
     deviceId,
-    `(${deviceInfo.latitude},${deviceInfo.longitude})`,
-    deviceInfo.altitude,
+    deviceInfo.coordinates,
+    deviceInfo.altitude_cm,
     deviceInfo.precision,
     deviceInfo.age,
     deviceInfo.speed,
-    new Date(deviceInfo.sent),
-    Date.now()
+    new Date(parseInt(deviceInfo.sent_time)),
+    new Date()
   ]);
 
   if (rows.length == 0) {
@@ -128,57 +121,72 @@ function extractFilters(query) {
     maxAge,
   } = query;
 
-  const queryFilterTuples = [
-    [
-      `sent_time`,
-      sentTime,
-      minSentTime,
-      maxSentTime
-    ],
-    [
-      `received_time`,
-      receivedTime,
-      minReceivedTime,
-      maxReceivedTime
-    ],
-    [
-      `precision`,
-      precision,
-      minPrecision,
-      maxPrecision
-    ],
-    [
-      `age`,
-      age,
-      minAge,
-      maxAge
-    ]
+  const queryFilters = [
+    {
+      identifier: `sent_time`,
+      equal: sentTime,
+      min: minSentTime,
+      max: maxSentTime,
+      validation: timeValidation,
+      transformation: timeTransformation
+    },
+    {
+      identifier: `received_time`,
+      equal: receivedTime,
+      min: minReceivedTime,
+      max: maxReceivedTime,
+      validation: timeValidation,
+      transformation: timeTransformation
+    },
+    {
+      identifier: `precision`,
+      equal: precision,
+      min: minPrecision,
+      max: maxPrecision,
+      validation: isValidNumber
+    },
+    {
+      identifier: `age`,
+      equal: age,
+      min: minAge,
+      max: maxAge,
+      validation: isValidNumber
+    }
   ];
 
-  return queryFilterTuples
-    .map(tuple => numericSQLFilterFactory(...tuple))
-    .filter(tuple => tuple !== null);
+  return queryFilters
+    .map(filter => numericSQLFilterFactory(filter))
+    .filter(sqlFilter => sqlFilter !== null);
 }
 
-function numericSQLFilterFactory(identifier, equal, min, max) {
-  if (isValidNumber(equal)) {
+function numericSQLFilterFactory(filter) {
+  const {
+    identifier,
+    equal,
+    min,
+    max,
+    validation = () => true,
+    transformation = a => a
+  } = filter;
+  
+  if (validation(equal)) {
     return {
       getFilter() {
-        return `${identifier} = ${equal}`
+        return `${identifier} = ${transformation(equal)}`
       }
     };
   }
 
   const filters = [];
-  if (isValidNumber(min)) {
-    filter.push(`>= ${min}`);
+  if (validation(min)) {
+    filters.push(`>= ${transformation(min)}`);
   }
 
-  if (isValidNumber(max)) {
-    filter.push(`< ${max}`);
+  if (validation(max)) {
+    filters.push(`< ${transformation(max)}`);
   }
 
-  if (filter.length == 0) {
+  if (filters.length == 0) {
     return null;
   }
 
@@ -195,4 +203,22 @@ function isValidNumber(num) {
   return num !== null
     && num !== undefined
     && !Number.isNaN(Number.parseFloat(num));
+}
+
+function timeValidation(time) {
+  return time !== null
+    && time !== undefined
+    && time.length == 14
+    && /^\d+$/.test(time);
+}
+
+function timeTransformation(time) {
+  const year   = s.substring(0, 4),
+        month  = s.substring(4, 6),
+        day    = s.substring(6, 8),
+        hour   = s.substring(8, 10),
+        minute = s.substring(10, 12),
+        second = s.substring(12, 14);
+
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
