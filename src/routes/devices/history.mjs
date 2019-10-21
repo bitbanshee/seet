@@ -2,34 +2,24 @@ import query from '../../db/index.mjs'
 import Router from 'express-promise-router'
 import logger from '../../misc/logger.mjs'
 import request from 'request-promise-native'
+import { API_ROOT, API_PORT } from '../../../server.mjs'
 
 const router = new Router();
 
 router.use('/history/:deviceId', async (req, res) => {
-  // TODO: check if this is necessary
-  logger.info(`Received device request`, { sender: req.ip });
   const deviceId = req.params['deviceId'];
-  if (deviceId === undefined || deviceId == '') {
-    logger.info(`No device ID provided`, { sender: req.ip });
-    res.status(400).send(`No device ID provided`);
-    return;
+  const token = req.headers['authorization'].substring('Bearer '.length);
+  try {
+    await request({
+      url: `http://localhost:${API_PORT}${API_ROOT}/devices/auth/${deviceId}`,
+      auth: {
+        'bearer': token 
+      }
+    });
+    return 'next';
+  } catch (reason) {
+    reason.response.pipe(res);
   }
-
-  /**
-   * TODO: check alternative
-   * const authRequest = request(`/devices/auth/${deviceId}`);
-   * req.pipe(authRequest);
-   * authRequest
-   *   .then(() => Promise.resolve('next'))
-   *   .catch(reason => reason.response.pipe(res))
-   */
-
-  return await request({
-    url: `/devices/auth/${deviceId}`,
-    headers: req.headers
-  })
-    .then(() => Promise.resolve('next'))
-    .catch(reason => reason.response.pipe(res))
 });
 
 router.get('/history/:deviceId', async (req, res) => {
@@ -57,7 +47,7 @@ export default router;
 async function getHandler(req, res) {
   const deviceId = req.params['deviceId'];
   const filterClauses = extractFilters(req.query)
-    .map(filter => filter.makeFilter())
+    .map(filter => filter.getFilter())
     .join(` AND `);
 
   const queryText = `
@@ -93,7 +83,7 @@ async function postHandler(req, res) {
   const deviceInfo = req.body;
   const deviceId = req.params['deviceId'];
   const queryText = `INSERT INTO device.history (device, coordinates, altitude_cm, precision, age, ` +
-    `speed, sent_time, received_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
+    `speed, sent_time, received_time) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`;
   const { rows } = await query(queryText, [
     deviceId,
     deviceInfo.coordinates,
@@ -101,8 +91,8 @@ async function postHandler(req, res) {
     deviceInfo.precision,
     deviceInfo.age,
     deviceInfo.speed,
-    new Date(deviceInfo.sent_time),
-    Date.now()
+    new Date(parseInt(deviceInfo.sent_time)),
+    new Date()
   ]);
 
   if (rows.length == 0) {
@@ -131,7 +121,7 @@ function extractFilters(query) {
     maxAge,
   } = query;
 
-  const queryFilterTuples = [
+  const queryFilters = [
     {
       identifier: `sent_time`,
       equal: sentTime,
@@ -164,12 +154,21 @@ function extractFilters(query) {
     }
   ];
 
-  return queryFilterTuples
-    .map(tuple => numericSQLFilterFactory(...tuple))
-    .filter(tuple => tuple !== null);
+  return queryFilters
+    .map(filter => numericSQLFilterFactory(filter))
+    .filter(sqlFilter => sqlFilter !== null);
 }
 
-function numericSQLFilterFactory(identifier, equal, min, max, validation = () => true, transformation = a => a) {
+function numericSQLFilterFactory(filter) {
+  const {
+    identifier,
+    equal,
+    min,
+    max,
+    validation = () => true,
+    transformation = a => a
+  } = filter;
+  
   if (validation(equal)) {
     return {
       getFilter() {
@@ -180,14 +179,14 @@ function numericSQLFilterFactory(identifier, equal, min, max, validation = () =>
 
   const filters = [];
   if (validation(min)) {
-    filter.push(`>= ${transformation(min)}`);
+    filters.push(`>= ${transformation(min)}`);
   }
 
   if (validation(max)) {
-    filter.push(`< ${transformation(max)}`);
+    filters.push(`< ${transformation(max)}`);
   }
 
-  if (filter.length == 0) {
+  if (filters.length == 0) {
     return null;
   }
 

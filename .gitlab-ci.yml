@@ -37,10 +37,6 @@ build:docker:
   dependencies:
     - version_extractor
   script:
-    - mkdir -p sensitive
-    - echo ${PRV_KEY} > sensitive/key
-    - echo ${PUB_KEY} > sensitive/key.pub
-    - echo ${KEY_PASS} > sensitive/pass
     - SEET_API_VERSION=$(cat web-api-version.txt)
     - DOCKER_IMAGE_TEST_VERSION_TAG=${CI_REGISTRY_IMAGE}/webapi:${SEET_API_VERSION}-TEST
     - docker build -t ${DOCKER_IMAGE_TEST_VERSION_TAG} .
@@ -55,6 +51,9 @@ test:api:
   dependencies:
     - version_extractor
   artifacts:
+    paths:
+      - combined.log
+      - error.log
     when: always
     reports:
       junit: ci/report.xml
@@ -64,7 +63,6 @@ test:api:
     - docker:19.03.1-dind
   variables:
     SEET_API_PORT: 8000
-    PGPORT: 5432
     POSTGRES_USER: seet_tester
     POSTGRES_PASSWORD: POKEMON
     POSTGRES_DB: seet
@@ -94,18 +92,25 @@ test:api:
         --rm \
         --add-host postgres:${POSTGRES_PORT_5432_TCP_ADDR} \
         -e PGHOST="postgres" \
-        -e PGPORT=${PGPORT} \
         -e PGUSER=${POSTGRES_USER} \
         -e PGPASSWORD=${POSTGRES_PASSWORD} \
         -e PGDATABASE=${POSTGRES_DB} \
         -v ${CI_PROJECT_DIR}/ci/initdb.sql:/initdb.sql \
         postgres \
         psql -f /initdb.sql
+    # Creating log files and sensisitve info
+    - touch combined.log
+    - touch error.log
     # Running the API test container
     - >
       docker run \
         --name seet_web_api \
         --add-host postgres:${POSTGRES_PORT_5432_TCP_ADDR} \
+        -v ${CI_PROJECT_DIR}/combined.log:/usr/src/app/combined.log \
+        -v ${CI_PROJECT_DIR}/error.log:/usr/src/app/error.log \
+        -v ${PRV_KEY}:/usr/src/app/sensitive/key \
+        -v ${PUB_KEY}:/usr/src/app/sensitive/key.pub \
+        -v ${KEY_PASS}:/usr/src/app/sensitive/pass \
         -p ${SEET_API_PORT}:${SEET_API_PORT} \
         -e SEET_API_PORT=${SEET_API_PORT} \
         -e SEET_API_VERSION=${SET_API_VERSION} \
@@ -119,13 +124,12 @@ test:api:
         -v ${CI_PROJECT_DIR}/ci:/ci \
         --rm \
         --net host \
-        -e POSTMAN_COLLECTION_URL=${POSTMAN_COLLECTION_URL} \
         postman/newman \
         run --iteration-data /ci/postman_data.json \
           --environment /ci/gitlab_ci_postman_environment.json \
           --reporters cli,junit \
           --reporter-junit-export /ci/report.xml \
-          ${POSTMAN_COLLECTION_URL}
+          /ci/postman_collection.json
 
 deploy:docker:
   stage: deploy

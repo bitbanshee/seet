@@ -27,9 +27,12 @@ async function authHandler (req, res) {
     return;
   }
 
-  const [ user, password ] = atob(req.headers['authorization'].substring('Basic '.length)).split(':');
+  const [ user, password ] = Buffer
+    .from(req.headers['authorization'].substring('Basic '.length), 'base64')
+    .toString()
+    .split(':');
   const role = req.query.role || null;
-  const validUser = await fetchUser(user, password, role);
+  const validUser = await fetchUser(user, password, role, req);
   if (validUser === null) {
     res.status(403).send(`Invalid user or password or user has no provided role`);
     return;
@@ -44,7 +47,7 @@ function validateHeaders (headers) {
     && headers['authorization'].startsWith('Basic')
 }
 
-async function fetchUser(user, password, role) {
+async function fetchUser(user, password, role, req) {
   const { rows: validUsers } = await query(
     `SELECT name, email, password, role FROM public.users WHERE email = '${user}'`);
 

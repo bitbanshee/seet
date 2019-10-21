@@ -40,7 +40,7 @@ async function authHandler (req, res) {
 
   const deviceId = req.params['deviceId'];
   const { rows: tokens } = await query(
-    `SELECT * FROM device.access_tokens WHERE device = '${deviceId}' AND expiration_time <= current_timestamp()`);
+    `SELECT * FROM device.access_tokens WHERE device = '${deviceId}' AND expiration_time <= current_timestamp`);
 
   if (tokens.length == 0) {
     logger.error(`Can't find a valid token in the database for device ${deviceId}`, { sender: req.ip })
@@ -56,12 +56,12 @@ async function authHandler (req, res) {
   }
 
   logger.info(`Token validated`, { sender: req.ip });
-  res.status(200);
+  res.status(200).send();
 };
 
 async function decryptToken (token) {
   return new Promise((res, rej) => {
-    fs.readFile('sensitive/key.pub', (err, key) => {
+    fs.readFile('sensitive/key.pub', { encoding: 'utf8' }, (err, key) => {
       if (err) {
         rej(err);
       }
@@ -76,7 +76,6 @@ async function decryptToken (token) {
           if (err) {
             rej(err);
           }
-          
           res(payload);
         });
       });

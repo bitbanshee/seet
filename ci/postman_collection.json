@@ -1,0 +1,1470 @@
+{
+	"info": {
+		"_postman_id": "9d40cf20-8e32-48d1-a6da-8ca223aedb5c",
+		"name": "Seet API",
+		"description": "API for both devices and clients to use.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "users",
+			"item": [
+				{
+					"name": "Authenticate users",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"id": "385d2983-f774-4c16-9a2c-19344fc7885d",
+								"exec": [
+									"",
+									"pm.test(`Status code test`, function () {",
+									"  pm.response.to.have.property('code').that.is.oneOf(JSON.parse(data.user_authentication_status_code));",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "basic",
+							"basic": [
+								{
+									"key": "password",
+									"value": "{{api_user_password}}",
+									"type": "string"
+								},
+								{
+									"key": "username",
+									"value": "{{api_user}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/users/auth?role={{role}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"users",
+								"auth"
+							],
+							"query": [
+								{
+									"key": "role",
+									"value": "{{role}}",
+									"description": "Role to check"
+								}
+							]
+						},
+						"description": "Authenticate users with Basic Authentication."
+					},
+					"response": [
+						{
+							"name": "Authorization header not provided or invalid",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/users/auth?role=<string>",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"users",
+										"auth"
+									],
+									"query": [
+										{
+											"key": "role",
+											"value": "<string>"
+										}
+									]
+								}
+							},
+							"status": "Unauthorized",
+							"code": 401,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "WWW-Authenticate",
+									"value": "<string>",
+									"description": "Basic realm=\"Authentication\""
+								},
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						},
+						{
+							"name": "Invalid user or password or user has no provided role",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/users/auth?role=<string>",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"users",
+										"auth"
+									],
+									"query": [
+										{
+											"key": "role",
+											"value": "<string>"
+										}
+									]
+								}
+							},
+							"status": "Forbidden",
+							"code": 403,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						},
+						{
+							"name": "User authenticated successfully",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/users/auth?role=<string>",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"users",
+										"auth"
+									],
+									"query": [
+										{
+											"key": "role",
+											"value": "<string>"
+										}
+									]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						},
+						{
+							"name": "Can't verify user",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/users/auth?role=<string>",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"users",
+										"auth"
+									],
+									"query": [
+										{
+											"key": "role",
+											"value": "<string>"
+										}
+									]
+								}
+							},
+							"status": "Internal Server Error",
+							"code": 500,
+							"_postman_previewlanguage": "text",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "text/plain"
+								}
+							],
+							"cookie": [],
+							"body": ""
+						}
+					]
+				}
+			],
+			"protocolProfileBehavior": {}
+		},
+		{
+			"name": "devices",
+			"item": [
+				{
+					"name": "auth",
+					"item": [
+						{
+							"name": "Sign up devices",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "028e091c-d31c-40f0-ad0f-791342af7dc4",
+										"exec": [
+											"pm.test(`Status code test`, function () {",
+											"  pm.response.to.have.property('code').that.is.oneOf(JSON.parse(data.device_sign_up_status_code));",
+											"});",
+											"",
+											"if (responseCode.code == 201) {",
+											"    const Ajv = require('ajv'),",
+											"      ajv = new Ajv({ logger: console }),",
+											"      responseSchema = {",
+											"        \"properties\": {",
+											"          \"token\": {",
+											"            \"type\": \"string\"",
+											"          },",
+											"          \"device_id\": {",
+											"            \"type\": \"string\"",
+											"          }",
+											"        }  ",
+											"      };",
+											"",
+											"    pm.test(\"Response schema is valid\", function () {",
+											"      const jsonData = pm.response.json();",
+											"      pm.expect(ajv.validate(responseSchema, jsonData)).to.be.true;",
+											"    });",
+											"",
+											"    const { token, device_id } = JSON.parse(responseBody);",
+											"    pm.environment.set(\"device_id\", device_id);",
+											"    pm.environment.set(\"device_token\", token);",
+											"    postman.setNextRequest(\"Authenticate devices\");",
+											"} else {",
+											"    postman.setNextRequest(null);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "basic",
+									"basic": [
+										{
+											"key": "password",
+											"value": "{{api_user_password}}",
+											"type": "string"
+										},
+										{
+											"key": "username",
+											"value": "{{api_user}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"{{device_name}}\",\n    \"imei\": \"{{device_imei}}\",\n    \"sim\": \"{{device_sim}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/devices/join",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"devices",
+										"join"
+									]
+								},
+								"description": "Sign up a device and generate its access token using a basic authentication provided by users with specific privileges. If the device already exists, retrieve its access token."
+							},
+							"response": [
+								{
+									"name": "Invalid user or password or user has no privileges to sign up a device",
+									"originalRequest": {
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"name\": \"<string>\",\n    \"imei\": \"<string>\",\n    \"sim\": \"<string>\"\n}"
+										},
+										"url": {
+											"raw": "{{baseUrl}}/devices/join",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"devices",
+												"join"
+											]
+										}
+									},
+									"status": "Forbidden",
+									"code": 403,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Error signing up device | Can't create device | Can't create token for device",
+									"originalRequest": {
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"name\": \"<string>\",\n    \"imei\": \"<string>\",\n    \"sim\": \"<string>\"\n}"
+										},
+										"url": {
+											"raw": "{{baseUrl}}/devices/join",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"devices",
+												"join"
+											]
+										}
+									},
+									"status": "Internal Server Error",
+									"code": 500,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Device created successfully",
+									"originalRequest": {
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"name\": \"<string>\",\n    \"imei\": \"<string>\",\n    \"sim\": \"<string>\"\n}"
+										},
+										"url": {
+											"raw": "{{baseUrl}}/devices/join",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"devices",
+												"join"
+											]
+										}
+									},
+									"status": "Created",
+									"code": 201,
+									"_postman_previewlanguage": "json",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "application/json"
+										}
+									],
+									"cookie": [],
+									"body": "{\n \"token\": \"<string>\",\n \"device_id\": \"<string>\"\n}"
+								}
+							]
+						},
+						{
+							"name": "Authenticate devices",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"id": "91869f4b-a38a-4554-b2d6-4ff9e00ac1aa",
+										"exec": [
+											"pm.test(`Status code test`, function () {",
+											"  pm.response.to.have.property('code').that.is.oneOf(JSON.parse(data.device_authentication_status_code));",
+											"});",
+											"",
+											"if (responseCode.code == 200) {",
+											"  postman.setNextRequest(\"Store information from a device\");",
+											"} else {",
+											"  postman.setNextRequest(null);",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"auth": {
+									"type": "bearer",
+									"bearer": [
+										{
+											"key": "token",
+											"value": "{{device_token}}",
+											"type": "string"
+										}
+									]
+								},
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/devices/auth/:deviceId",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"devices",
+										"auth",
+										":deviceId"
+									],
+									"variable": [
+										{
+											"key": "deviceId",
+											"value": "{{device_id}}"
+										}
+									]
+								},
+								"description": "Authenticate devices based on a device ID and a authentication token. You probably won't use this endpoint directly."
+							},
+							"response": [
+								{
+									"name": "Invalid token",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{baseUrl}}/devices/auth/<string>",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"devices",
+												"auth",
+												"<string>"
+											]
+										}
+									},
+									"status": "Forbidden",
+									"code": 403,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Device authenticated successfully",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{baseUrl}}/devices/auth/<string>",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"devices",
+												"auth",
+												"<string>"
+											]
+										}
+									},
+									"status": "OK",
+									"code": 200,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Can't verify token",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{baseUrl}}/devices/auth/<string>",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"devices",
+												"auth",
+												"<string>"
+											]
+										}
+									},
+									"status": "Internal Server Error",
+									"code": 500,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								},
+								{
+									"name": "Authorization header not provided or invalid",
+									"originalRequest": {
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{baseUrl}}/devices/auth/<string>",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"devices",
+												"auth",
+												"<string>"
+											]
+										}
+									},
+									"status": "Unauthorized",
+									"code": 401,
+									"_postman_previewlanguage": "text",
+									"header": [
+										{
+											"key": "WWW-Authenticate",
+											"value": "<string>",
+											"description": "Bearer realm=\"Send device token\""
+										},
+										{
+											"key": "Content-Type",
+											"value": "text/plain"
+										}
+									],
+									"cookie": [],
+									"body": ""
+								}
+							]
+						}
+					],
+					"protocolProfileBehavior": {},
+					"_postman_isSubFolder": true
+				},
+				{
+					"name": "history",
+					"item": [
+						{
+							"name": "{device Id}",
+							"item": [
+								{
+									"name": "Store information from a device",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"id": "cae7f882-2134-4e47-b140-fa9350051ffe",
+												"exec": [
+													"pm.test(`Status code test`, function () {",
+													"  pm.response.to.have.property('code').that.is.oneOf(JSON.parse(data.device_history_post_status_code));",
+													"});",
+													"",
+													"if (responseCode.code == 201) {",
+													"    postman.setNextRequest(\"Fetch a device history information\");",
+													"} else {",
+													"    postman.setNextRequest(null);",
+													"}"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{device_token}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "POST",
+										"header": [
+											{
+												"key": "Content-Type",
+												"value": "application/json"
+											}
+										],
+										"body": {
+											"mode": "raw",
+											"raw": "{\n    \"coordinates\": \"({{$randomLatitude}},{{$randomLongitude}})\",\n    \"sent_time\": \"{{$timestamp}}\",\n    \"altitude_cm\": \"{{$randomInt}}\",\n    \"precision\": \"{{$randomInt}}\",\n    \"age\": \"{{$randomInt}}\",\n    \"speed\": \"{{$randomInt}}\"\n}"
+										},
+										"url": {
+											"raw": "{{baseUrl}}/devices/history/:deviceId",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"devices",
+												"history",
+												":deviceId"
+											],
+											"variable": [
+												{
+													"key": "deviceId",
+													"value": "{{device_id}}",
+													"description": {
+														"content": "",
+														"type": "text/plain"
+													}
+												}
+											]
+										},
+										"description": "Store telemetry information from a device"
+									},
+									"response": [
+										{
+											"name": "Empty request body",
+											"originalRequest": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n    \"coordinates\": \"<string>\",\n    \"sent_time\": \"<string>\",\n    \"received_time\": \"<string>\",\n    \"altitude_cm\": \"<integer>\",\n    \"precision\": \"<integer>\",\n    \"age\": \"<integer>\",\n    \"speed\": \"<number>\"\n}"
+												},
+												"url": {
+													"raw": "{{baseUrl}}/devices/history/<string>",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"devices",
+														"history",
+														"<string>"
+													]
+												}
+											},
+											"status": "Bad Request",
+											"code": 400,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										},
+										{
+											"name": "Authorization header not provided or invalid",
+											"originalRequest": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n    \"coordinates\": \"<string>\",\n    \"sent_time\": \"<string>\",\n    \"received_time\": \"<string>\",\n    \"altitude_cm\": \"<integer>\",\n    \"precision\": \"<integer>\",\n    \"age\": \"<integer>\",\n    \"speed\": \"<number>\"\n}"
+												},
+												"url": {
+													"raw": "{{baseUrl}}/devices/history/<string>",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"devices",
+														"history",
+														"<string>"
+													]
+												}
+											},
+											"status": "Unauthorized",
+											"code": 401,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "WWW-Authenticate",
+													"value": "<string>",
+													"description": "Bearer realm=\"Send device telemetry\""
+												},
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										},
+										{
+											"name": "Device telemetry information stored successfully",
+											"originalRequest": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n    \"coordinates\": \"<string>\",\n    \"sent_time\": \"<string>\",\n    \"received_time\": \"<string>\",\n    \"altitude_cm\": \"<integer>\",\n    \"precision\": \"<integer>\",\n    \"age\": \"<integer>\",\n    \"speed\": \"<number>\"\n}"
+												},
+												"url": {
+													"raw": "{{baseUrl}}/devices/history/<string>",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"devices",
+														"history",
+														"<string>"
+													]
+												}
+											},
+											"status": "Created",
+											"code": 201,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										},
+										{
+											"name": "Can't verify token | Error storing device information | Can't store device history",
+											"originalRequest": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n    \"coordinates\": \"<string>\",\n    \"sent_time\": \"<string>\",\n    \"received_time\": \"<string>\",\n    \"altitude_cm\": \"<integer>\",\n    \"precision\": \"<integer>\",\n    \"age\": \"<integer>\",\n    \"speed\": \"<number>\"\n}"
+												},
+												"url": {
+													"raw": "{{baseUrl}}/devices/history/<string>",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"devices",
+														"history",
+														"<string>"
+													]
+												}
+											},
+											"status": "Internal Server Error",
+											"code": 500,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										},
+										{
+											"name": "Invalid token",
+											"originalRequest": {
+												"method": "POST",
+												"header": [
+													{
+														"key": "Content-Type",
+														"value": "application/json"
+													}
+												],
+												"body": {
+													"mode": "raw",
+													"raw": "{\n    \"coordinates\": \"<string>\",\n    \"sent_time\": \"<string>\",\n    \"received_time\": \"<string>\",\n    \"altitude_cm\": \"<integer>\",\n    \"precision\": \"<integer>\",\n    \"age\": \"<integer>\",\n    \"speed\": \"<number>\"\n}"
+												},
+												"url": {
+													"raw": "{{baseUrl}}/devices/history/<string>",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"devices",
+														"history",
+														"<string>"
+													]
+												}
+											},
+											"status": "Forbidden",
+											"code": 403,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										}
+									]
+								},
+								{
+									"name": "Fetch a device history information",
+									"event": [
+										{
+											"listen": "test",
+											"script": {
+												"id": "b32b0549-1603-4347-938d-9cb3d5eadce4",
+												"exec": [
+													"pm.test(`Status code test`, function () {",
+													"  pm.response.to.have.property('code').that.is.oneOf(JSON.parse(data.device_history_get_status_code));",
+													"});",
+													"",
+													"if (responseCode.code == 200) {",
+													"    const Ajv = require('ajv'),",
+													"      ajv = new Ajv({ logger: console }),",
+													"      responseSchema = {",
+													"        \"properties\": {",
+													"          \"device\": {",
+													"            \"type\": \"string\"",
+													"          },",
+													"          \"coordinates\": {",
+													"            \"type\": \"string\"",
+													"          },",
+													"          \"altitude_cm\": {",
+													"            \"type\": \"number\"",
+													"          },",
+													"          \"precision\": {",
+													"            \"type\": \"number\"",
+													"          },",
+													"          \"age\": {",
+													"            \"type\": \"number\"",
+													"          },",
+													"          \"speed\": {",
+													"            \"type\": \"number\"",
+													"          },",
+													"          \"sent_time\": {",
+													"            \"type\": \"string\"",
+													"          },",
+													"          \"received_time\": {",
+													"            \"type\": \"string\"",
+													"          }",
+													"        }  ",
+													"      };",
+													"    ",
+													"    pm.test(\"Response schema is valid\", function () {",
+													"      const jsonData = pm.response.json();",
+													"      pm.expect(ajv.validate(responseSchema, jsonData)).to.be.true;",
+													"    });",
+													"}"
+												],
+												"type": "text/javascript"
+											}
+										}
+									],
+									"request": {
+										"auth": {
+											"type": "bearer",
+											"bearer": [
+												{
+													"key": "token",
+													"value": "{{device_token}}",
+													"type": "string"
+												}
+											]
+										},
+										"method": "GET",
+										"header": [],
+										"url": {
+											"raw": "{{baseUrl}}/devices/history/:deviceId?",
+											"host": [
+												"{{baseUrl}}"
+											],
+											"path": [
+												"devices",
+												"history",
+												":deviceId"
+											],
+											"query": [
+												{
+													"key": "sentTime",
+													"value": "<string>",
+													"description": "Time when the device has sent its telemetry information. Timestamp in Postgres format 'YYYYMMDDHH24MISS'",
+													"disabled": true
+												},
+												{
+													"key": "minSentTime",
+													"value": "<string>",
+													"description": "Minimum time when the device has sent its telemetry information. Timestamp in Postgres format 'YYYYMMDDHH24MISS'",
+													"disabled": true
+												},
+												{
+													"key": "maxSentTime",
+													"value": "<string>",
+													"description": "Maximum time when the device has sent its telemetry information. Timestamp in Postgres format 'YYYYMMDDHH24MISS'",
+													"disabled": true
+												},
+												{
+													"key": "receivedTime",
+													"value": "<string>",
+													"description": "Time when the server has received a device's telemetry information. Timestamp in Postgres format 'YYYYMMDDHH24MISS'",
+													"disabled": true
+												},
+												{
+													"key": "minReceivedTime",
+													"value": "<string>",
+													"description": "Minimum time when the server has received a device's telemetry information. Timestamp in Postgres format 'YYYYMMDDHH24MISS'",
+													"disabled": true
+												},
+												{
+													"key": "maxReceivedTime",
+													"value": "<string>",
+													"description": "Maximum time when the server has received a device's telemetry information. Timestamp in Postgres format 'YYYYMMDDHH24MISS'",
+													"disabled": true
+												},
+												{
+													"key": "precision",
+													"value": "<integer>",
+													"description": "Precision in meters",
+													"disabled": true
+												},
+												{
+													"key": "minPrecision",
+													"value": "<integer>",
+													"description": "Min precision in meters",
+													"disabled": true
+												},
+												{
+													"key": "maxPrecision",
+													"value": "<integer>",
+													"description": "Min precision in meters",
+													"disabled": true
+												},
+												{
+													"key": "age",
+													"value": "<integer>",
+													"description": "Age of Differential GPS data in seconds",
+													"disabled": true
+												},
+												{
+													"key": "minAge",
+													"value": "<integer>",
+													"description": "Min age of Differential GPS data in seconds",
+													"disabled": true
+												},
+												{
+													"key": "maxAge",
+													"value": "<integer>",
+													"description": "Max age of Differential GPS data in seconds",
+													"disabled": true
+												}
+											],
+											"variable": [
+												{
+													"key": "deviceId",
+													"value": "{{device_id}}",
+													"description": {
+														"content": "",
+														"type": "text/plain"
+													}
+												}
+											]
+										},
+										"description": "Fetch a device history information, optionally filtering by query parameters. Default filter by time, all records from 15 min before the request."
+									},
+									"response": [
+										{
+											"name": "Authorization header not provided or invalid",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "{{baseUrl}}/devices/history/<string>?sentTime=<string>&minSentTime=<string>&maxSentTime=<string>&receivedTime=<string>&minReceivedTime=<string>&maxReceivedTime=<string>&precision=<integer>&minPrecision=<integer>&maxPrecision=<integer>&age=<integer>&minAge=<integer>&maxAge=<integer>",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"devices",
+														"history",
+														"<string>"
+													],
+													"query": [
+														{
+															"key": "sentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "minSentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "maxSentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "receivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "minReceivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "maxReceivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "precision",
+															"value": "<integer>"
+														},
+														{
+															"key": "minPrecision",
+															"value": "<integer>"
+														},
+														{
+															"key": "maxPrecision",
+															"value": "<integer>"
+														},
+														{
+															"key": "age",
+															"value": "<integer>"
+														},
+														{
+															"key": "minAge",
+															"value": "<integer>"
+														},
+														{
+															"key": "maxAge",
+															"value": "<integer>"
+														}
+													]
+												}
+											},
+											"status": "Unauthorized",
+											"code": 401,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "WWW-Authenticate",
+													"value": "<string>",
+													"description": "Bearer realm=\"Send device telemetry\""
+												},
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										},
+										{
+											"name": "Can't verify token | Can't get device history",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "{{baseUrl}}/devices/history/<string>?sentTime=<string>&minSentTime=<string>&maxSentTime=<string>&receivedTime=<string>&minReceivedTime=<string>&maxReceivedTime=<string>&precision=<integer>&minPrecision=<integer>&maxPrecision=<integer>&age=<integer>&minAge=<integer>&maxAge=<integer>",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"devices",
+														"history",
+														"<string>"
+													],
+													"query": [
+														{
+															"key": "sentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "minSentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "maxSentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "receivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "minReceivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "maxReceivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "precision",
+															"value": "<integer>"
+														},
+														{
+															"key": "minPrecision",
+															"value": "<integer>"
+														},
+														{
+															"key": "maxPrecision",
+															"value": "<integer>"
+														},
+														{
+															"key": "age",
+															"value": "<integer>"
+														},
+														{
+															"key": "minAge",
+															"value": "<integer>"
+														},
+														{
+															"key": "maxAge",
+															"value": "<integer>"
+														}
+													]
+												}
+											},
+											"status": "Internal Server Error",
+											"code": 500,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										},
+										{
+											"name": "No device ID provided",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "{{baseUrl}}/devices/history/<string>?sentTime=<string>&minSentTime=<string>&maxSentTime=<string>&receivedTime=<string>&minReceivedTime=<string>&maxReceivedTime=<string>&precision=<integer>&minPrecision=<integer>&maxPrecision=<integer>&age=<integer>&minAge=<integer>&maxAge=<integer>",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"devices",
+														"history",
+														"<string>"
+													],
+													"query": [
+														{
+															"key": "sentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "minSentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "maxSentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "receivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "minReceivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "maxReceivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "precision",
+															"value": "<integer>"
+														},
+														{
+															"key": "minPrecision",
+															"value": "<integer>"
+														},
+														{
+															"key": "maxPrecision",
+															"value": "<integer>"
+														},
+														{
+															"key": "age",
+															"value": "<integer>"
+														},
+														{
+															"key": "minAge",
+															"value": "<integer>"
+														},
+														{
+															"key": "maxAge",
+															"value": "<integer>"
+														}
+													]
+												}
+											},
+											"status": "Bad Request",
+											"code": 400,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										},
+										{
+											"name": "Device history information fetched",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "{{baseUrl}}/devices/history/<string>?sentTime=<string>&minSentTime=<string>&maxSentTime=<string>&receivedTime=<string>&minReceivedTime=<string>&maxReceivedTime=<string>&precision=<integer>&minPrecision=<integer>&maxPrecision=<integer>&age=<integer>&minAge=<integer>&maxAge=<integer>",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"devices",
+														"history",
+														"<string>"
+													],
+													"query": [
+														{
+															"key": "sentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "minSentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "maxSentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "receivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "minReceivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "maxReceivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "precision",
+															"value": "<integer>"
+														},
+														{
+															"key": "minPrecision",
+															"value": "<integer>"
+														},
+														{
+															"key": "maxPrecision",
+															"value": "<integer>"
+														},
+														{
+															"key": "age",
+															"value": "<integer>"
+														},
+														{
+															"key": "minAge",
+															"value": "<integer>"
+														},
+														{
+															"key": "maxAge",
+															"value": "<integer>"
+														}
+													]
+												}
+											},
+											"status": "OK",
+											"code": 200,
+											"_postman_previewlanguage": "json",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "application/json"
+												}
+											],
+											"cookie": [],
+											"body": "{\n \"coordinates\": \"<string>\",\n \"sent_time\": \"<string>\",\n \"received_time\": \"<string>\",\n \"altitude_cm\": \"<integer>\",\n \"precision\": \"<integer>\",\n \"age\": \"<integer>\",\n \"speed\": \"<number>\"\n}"
+										},
+										{
+											"name": "Invalid token",
+											"originalRequest": {
+												"method": "GET",
+												"header": [],
+												"url": {
+													"raw": "{{baseUrl}}/devices/history/<string>?sentTime=<string>&minSentTime=<string>&maxSentTime=<string>&receivedTime=<string>&minReceivedTime=<string>&maxReceivedTime=<string>&precision=<integer>&minPrecision=<integer>&maxPrecision=<integer>&age=<integer>&minAge=<integer>&maxAge=<integer>",
+													"host": [
+														"{{baseUrl}}"
+													],
+													"path": [
+														"devices",
+														"history",
+														"<string>"
+													],
+													"query": [
+														{
+															"key": "sentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "minSentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "maxSentTime",
+															"value": "<string>"
+														},
+														{
+															"key": "receivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "minReceivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "maxReceivedTime",
+															"value": "<string>"
+														},
+														{
+															"key": "precision",
+															"value": "<integer>"
+														},
+														{
+															"key": "minPrecision",
+															"value": "<integer>"
+														},
+														{
+															"key": "maxPrecision",
+															"value": "<integer>"
+														},
+														{
+															"key": "age",
+															"value": "<integer>"
+														},
+														{
+															"key": "minAge",
+															"value": "<integer>"
+														},
+														{
+															"key": "maxAge",
+															"value": "<integer>"
+														}
+													]
+												}
+											},
+											"status": "Forbidden",
+											"code": 403,
+											"_postman_previewlanguage": "text",
+											"header": [
+												{
+													"key": "Content-Type",
+													"value": "text/plain"
+												}
+											],
+											"cookie": [],
+											"body": ""
+										}
+									]
+								}
+							],
+							"protocolProfileBehavior": {},
+							"_postman_isSubFolder": true
+						}
+					],
+					"protocolProfileBehavior": {},
+					"_postman_isSubFolder": true
+				}
+			],
+			"protocolProfileBehavior": {}
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"id": "286629fd-dbdc-4d1c-bb4f-05984e7f8557",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"id": "a48ad5f7-d0d8-4218-b255-120ce1a44bdb",
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"protocolProfileBehavior": {}
+}
